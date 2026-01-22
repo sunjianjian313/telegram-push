@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>修车推荐</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding-top: 20px;
+        }
+        .card {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            border-radius: 10px;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px 10px 0 0;
+            margin-bottom: 20px;
+        }
+        .ql-container {
+            min-height: 150px;
+        }
+        
+        /* 改善图片在编辑器中的显示效果 */
+        .ql-editor img {
+            max-width: 100%;
+            height: auto;
+            display: inline-block;
+            margin: 5px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+        
+        /* 支持图片拖拽效果 */
+        .ql-editor img[draggable="true"] {
+            cursor: move;
+        }
+        
+        /* 视频元素样式 */
+        .ql-editor iframe, .ql-editor video {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 5px 0;
+        }
+        
+        /* 编辑器内的块级元素间距 */
+        .ql-editor p, .ql-editor h1, .ql-editor h2, .ql-editor h3, .ql-editor ul, .ql-editor ol {
+            margin-bottom: 10px;
+        }
+        .file-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            background-color: #f8f9fa;
+        }
+        .file-item {
+            padding: 5px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+        }
+        .file-item:hover {
+            background-color: #e9ecef;
+        }
+        .file-item.selected {
+            background-color: #007bff;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-10">
+                <div class="card">
+                    <div class="header">
+<!--                        <h1 class="text-center">修车推荐</h1>-->
+<!--                        <p class="text-center mb-0">通过此页面可以向指定聊天推送带文案的图片</p>-->
+                    </div>
+                    
+                    <div class="card-body">
+                        <form id="photoForm">
+                            <div class="mb-3">
+                                <label for="chatId" class="form-label">聊天ID:</label>
+                                <input type="text" class="form-control" id="chatId" th:value="${chatId}" placeholder="输入目标聊天ID（留空使用默认值）">
+                                <div class="form-text">请输入接收消息的聊天ID（群组ID或用户ID）</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="captionEditor" class="form-label">富文本编辑器 - 图片说明文字:</label>
+                                <div id="captionEditor" style="height: 200px;"></div>
+                                <div class="form-text">使用上方工具栏编辑文案，支持粗体、斜体、链接等格式</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="imageType" class="form-label">消息类型:</label>
+                                <select class="form-select" id="imageType" required>
+                                    <option value="textonly" selected>仅发送富文本内容</option>
+                                    <option value="local">发送富文本内容和本地图片</option>
+                                    <option value="url">发送富文本内容和网络图片</option>
+                                    <option value="folder">发送富文本内容和从文件夹选择</option>
+                                    <option value="grid">上传九宫格图片加视频并在最下面加入文字</option>
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3" id="localImageSection">
+                                <label for="photoPath" class="form-label">本地图片路径:</label>
+                                <input type="text" class="form-control" id="photoPath" placeholder="例如: C:/images/photo.jpg">
+                            </div>
+                            
+                            <div class="mb-3 d-none" id="urlImageSection">
+                                <label for="imageUrl" class="form-label">网络图片URL:</label>
+                                <input type="url" class="form-control" id="imageUrl" placeholder="例如: https://example.com/image.jpg">
+                            </div>
+                            
+                            <div class="mb-3 d-none" id="folderImageSection">
+                                <label class="form-label">选择本地图片文件:</label>
+                                <div class="input-group">
+                                    <input type="file" class="form-control" id="localImageFile" accept="image/*" multiple>
+                                    <button class="btn btn-outline-secondary" type="button" id="uploadFileBtn">上传文件</button>
+                                </div>
+                                
+                                <div class="mt-2">
+                                    <label class="form-label">已选择的文件:</label>
+                                    <div id="selectedFileList" class="file-list">
+                                        <div class="text-muted text-center py-3">请选择本地文件</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3 d-none" id="gridImageSection">
+                                <label class="form-label">上传九宫格图片:</label>
+                                <div class="input-group">
+                                    <input type="file" class="form-control" id="gridImages" accept="image/*" multiple>
+                                    <button class="btn btn-outline-secondary" type="button" id="addMoreImages">添加更多图片</button>
+                                </div>
+                                <div class="form-text">选择最多9张图片作为九宫格布局</div>
+                                
+                                <div class="mt-2">
+                                    <label class="form-label">上传视频:</label>
+                                    <input type="file" class="form-control" id="gridVideo" accept="video/*">
+                                    <div class="form-text">选择一个视频文件（可选）</div>
+                                </div>
+                                
+                                <div class="mt-2">
+                                    <label class="form-label">九宫格预览:</label>
+                                    <div id="gridPreview" class="row row-cols-3 g-2"></div>
+                                </div>
+                                
+                                <!-- 隐藏的文件输入框用于累积选择 -->
+                                <input type="file" class="form-control d-none" id="hiddenGridImages" accept="image/*" multiple>
+                            </div>
+                            
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-primary btn-lg">发送图片和文案</button>
+                                <button type="button" class="btn btn-success btn-lg" id="previewBtn">预览效果</button>
+                            </div>
+                        </form>
+                        
+                        <div class="mt-4 p-3 bg-light rounded" id="resultDiv" style="display: none;">
+                            <h5>操作结果:</h5>
+                            <p id="resultText"></p>
+                        </div>
+                        
+<!--                        <div class="mt-4">-->
+<!--                            <h5>使用说明:</h5>-->
+<!--                            <ul>-->
+<!--                                <li>聊天ID: 可以是群组ID或用户的ID</li>-->
+<!--                                <li>富文本编辑器: 支持格式化文本，如粗体、斜体、链接等</li>-->
+<!--                                <li>本地图片路径: 需要服务器上存在该图片文件</li>-->
+<!--                                <li>网络图片URL: 支持常见的图片格式（jpg, png, gif等）</li>-->
+<!--                                <li>从文件夹选择: 输入文件夹路径后点击"加载文件"按钮，可以从列表中选择图片</li>-->
+<!--                            </ul>-->
+<!--                        </div>-->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+    <script>
+        // 定义自定义图片模块，增强图片操作功能
+        const ImageFormatAttributesList = [
+            'alt',
+            'height',
+            'width',
+            'style'
+        ];
+        
+        const BaseImageFormat = Quill.import('formats/image');
+        
+        class ImageFormat extends BaseImageFormat {
+            static formats(node) {
+                return ImageFormatAttributesList.reduce(function(formats, attribute) {
+                    if (node.hasAttribute(attribute)) {
+                        formats[attribute] = node.getAttribute(attribute);
+                    }
+                    return formats;
+                }, {});
+            }
+            format(name, value) {
+                if (ImageFormatAttributesList.indexOf(name) > -1) {
+                    if (value) {
+                        this.domNode.setAttribute(name, value);
+                    } else {
+                        this.domNode.removeAttribute(name);
+                    }
+                } else {
+                    super.format(name, value);
+                }
+            }
+        }
+        
+        Quill.register(ImageFormat, true);
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化富文本编辑器
+            const quill = new Quill('#captionEditor', {
+                // 添加图片拖拽支持
+                onDragEnter: function(evt) {
+                    evt.preventDefault();
+                },
+                onDragOver: function(evt) {
+                    evt.preventDefault();
+                },
+                onDrop: function(evt) {
+                    evt.preventDefault();
+                },
+                theme: 'snow',
+                modules: {
+                    toolbar: [
+                        [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+                        ['bold', 'italic', 'underline', 'strike'],
+                        [{'color': []}, {'background': []}],
+                        [{ 'align': [] }],
+                        ['blockquote', 'code-block'],
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                        [{ 'script': 'sub'}, { 'script': 'super' }],
+                        ['link', 'image', 'video'],
+                        ['clean']
+                    ],
+                    clipboard: {
+                        matchVisual: false
+                    }
+                },
+                // 启用图片拖放和编辑功能
+                bounds: document.body,
+                debug: 'warn',
+                placeholder: '在此处输入内容...',
+                readOnly: false,
+                scrollingContainer: null,
+                formats: ['header', 'font', 'size', 'bold', 'italic', 'underline', 'strike', 'blockquote', 'list', 'bullet', 'indent', 'link', 'image', 'video', 'color', 'background', 'align', 'clean', 'code', 'code-block', 'script']
+            });
+            
+            // 自定义视频上传处理器
+            quill.getModule('toolbar').addHandler('video', function() {
+                // 创建一个临时的input元素来选择视频文件
+                const input = document.createElement('input');
+                input.setAttribute('type', 'file');
+                input.setAttribute('accept', 'video/*');
+                input.click();
+                
+                input.onchange = function() {
+                    const file = input.files[0];
+                    if (file) {
+                        // 创建一个FileReader来读取视频文件
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            const videoDataUrl = e.target.result;
+                            const range = quill.getSelection();
+                            if (range) {
+                                quill.insertEmbed(range.index, 'video', videoDataUrl);
+                            }
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                };
+            });
+            
+            const imageTypeSelect = document.getElementById('imageType');
+            const localImageSection = document.getElementById('localImageSection');
+            const urlImageSection = document.getElementById('urlImageSection');
+            const folderImageSection = document.getElementById('folderImageSection');
+            const gridImageSection = document.getElementById('gridImageSection'); // 新增九宫格部分
+            
+            // 切换图片类型
+            imageTypeSelect.addEventListener('change', function() {
+                if (this.value === 'local') {
+                    localImageSection.classList.remove('d-none');
+                    urlImageSection.classList.add('d-none');
+                    folderImageSection.classList.add('d-none');
+                    gridImageSection.classList.add('d-none'); // 新增
+                } else if (this.value === 'url') {
+                    localImageSection.classList.add('d-none');
+                    urlImageSection.classList.remove('d-none');
+                    folderImageSection.classList.add('d-none');
+                    gridImageSection.classList.add('d-none'); // 新增
+                } else if (this.value === 'folder') {
+                    localImageSection.classList.add('d-none');
+                    urlImageSection.classList.add('d-none');
+                    folderImageSection.classList.remove('d-none');
+                    gridImageSection.classList.add('d-none'); // 新增
+                } else if (this.value === 'grid') { // 新增九宫格选项
+                    localImageSection.classList.add('d-none');
+                    urlImageSection.classList.add('d-none');
+                    folderImageSection.classList.add('d-none');
+                    gridImageSection.classList.remove('d-none');
+                } else if (this.value === 'textonly') {
+                    localImageSection.classList.add('d-none');
+                    urlImageSection.classList.add('d-none');
+                    folderImageSection.classList.add('d-none');
+                    gridImageSection.classList.add('d-none'); // 新增
+                }
+            });
+            
+            // 处理本地文件选择
+            document.getElementById('localImageFile').addEventListener('change', function(event) {
+                const files = event.target.files;
+                const fileListContainer = document.getElementById('selectedFileList');
+                
+                if (files.length > 0) {
+                    let html = '';
+                    for (let i = 0; i < files.length; i++) {
+                        const file = files[i];
+                        // 当文件项被点击时立即读取文件
+                        html += `<div class="file-item" onclick="selectLocalFile(this, ${i})">${file.name} (${formatFileSize(file.size)})</div>`;
+                    }
+                    fileListContainer.innerHTML = html;
+                } else {
+                    fileListContainer.innerHTML = '<div class="text-muted text-center py-3">请选择本地文件</div>';
+                }
+            });
+            
+            // 上传文件按钮事件
+            document.getElementById('uploadFileBtn').addEventListener('click', function() {
+                const fileInput = document.getElementById('localImageFile');
+                if (fileInput.files.length === 0) {
+                    alert('请选择至少一个图片文件');
+                    return;
+                }
+                
+                // 直接触发第一个文件的选择
+                selectLocalFile(null, 0);
+            });
+            
+            // 格式化文件大小
+            function formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+            
+            // 验证是否为有效的文件路径
+            function isValidFilePath(path) {
+                // 简单验证：检查是否包含常见的文件扩展名
+                const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
+                return imageExtensions.some(ext => path.toLowerCase().endsWith(ext));
+            }
+            
+            // 选择本地文件
+            window.selectLocalFile = function(element, fileIndex) {
+                const fileInput = document.getElementById('localImageFile');
+                if (fileInput.files.length <= fileIndex) {
+                    return;
+                }
+                
+                const selectedFile = fileInput.files[fileIndex];
+                
+                // 移除之前的选择
+                document.querySelectorAll('.file-item').forEach(item => {
+                    item.classList.remove('selected');
+                });
+                
+                // 如果element存在，添加当前选择样式
+                if (element) {
+                    element.classList.add('selected');
+                }
+                
+                // 使用FileReader读取文件
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    // 将Data URL存储到隐藏字段
+                    document.getElementById('photoPath').value = e.target.result;
+                };
+                
+                reader.readAsDataURL(selectedFile);
+            };
+            
+            // 九宫格图片累积选择功能
+            let selectedGridFiles = [];
+            
+            // 主文件选择器：首次选择
+            document.getElementById('gridImages').addEventListener('change', function(event) {
+                const newFiles = Array.from(event.target.files);
+                
+                // 添加新文件到已选文件列表（最多9个）
+                newFiles.forEach(file => {
+                    if (selectedGridFiles.length < 9 && !selectedGridFiles.some(f => f.name === file.name && f.size === file.size)) {
+                        selectedGridFiles.push(file);
+                    }
+                });
+                
+                // 限制总数为9
+                selectedGridFiles = selectedGridFiles.slice(0, 9);
+                
+                // 更新预览
+                updateGridPreviews();
+            });
+            
+            // "添加更多图片"按钮：追加选择
+            document.getElementById('addMoreImages').addEventListener('click', function() {
+                // 触发隐藏的文件输入框
+                document.getElementById('hiddenGridImages').click();
+            });
+            
+            // 隐藏的文件输入框：追加选择
+            document.getElementById('hiddenGridImages').addEventListener('change', function(event) {
+                const newFiles = Array.from(event.target.files);
+                
+                // 添加新文件到已选文件列表（最多9个）
+                newFiles.forEach(file => {
+                    if (selectedGridFiles.length < 9 && !selectedGridFiles.some(f => f.name === file.name && f.size === file.size)) {
+                        selectedGridFiles.push(file);
+                    }
+                });
+                
+                // 限制总数为9
+                selectedGridFiles = selectedGridFiles.slice(0, 9);
+                
+                // 更新预览
+                updateGridPreviews();
+            });
+            
+            // 更新九宫格预览
+            function updateGridPreviews() {
+                const previewContainer = document.getElementById('gridPreview');
+                previewContainer.innerHTML = '';
+                
+                selectedGridFiles.forEach((file, index) => {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const col = document.createElement('div');
+                        col.className = 'col';
+                        
+                        const img = document.createElement('img');
+                        img.src = e.target.result;
+                        img.className = 'img-fluid rounded';
+                        img.style.maxHeight = '100px';
+                        img.alt = `Preview ${index + 1}`;
+                        
+                        col.appendChild(img);
+                        previewContainer.appendChild(col);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+            
+            // 清空已选文件的函数（可选功能）
+            function clearSelectedGridFiles() {
+                selectedGridFiles = [];
+                const previewContainer = document.getElementById('gridPreview');
+                previewContainer.innerHTML = '';
+            }
+            
+            // 表单提交
+            document.getElementById('photoForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const chatId = document.getElementById('chatId').value || '-1002979306798'; // 使用默认聊天ID
+                // 获取富文本编辑器内容
+                const caption = quill.root.innerHTML; // 获取HTML格式的内容
+                const imageType = imageTypeSelect.value;
+                
+                // 检查富文本编辑器是否有内容
+                if (!caption.trim() || caption === '<p><br></p>') {
+                    alert('请在富文本编辑器中输入内容');
+                    return;
+                }
+                
+                let endpoint, data;
+                if (imageType === 'local') {
+                    const photoPath = document.getElementById('photoPath').value;
+                    if (!photoPath.trim()) {
+                        alert('请输入本地图片路径');
+                        return;
+                    }
+                    endpoint = '/sendPhoto';
+                    data = { chatId, photoPath, caption };
+                } else if (imageType === 'folder') {
+                    const photoDataUrl = document.getElementById('photoPath').value;
+                    if (!photoDataUrl.trim() || (!photoDataUrl.startsWith('data:image/') && !isValidFilePath(photoDataUrl))) {
+                        alert('请选择图片文件');
+                        return;
+                    }
+                    
+                    // 对于Data URL，我们需要将其发送到后端进行处理
+                    if (photoDataUrl.startsWith('data:video/')) {
+                        // 如果是视频Data URL，发送到视频处理端点
+                        endpoint = '/sendTextOnly'; // 使用相同端点，后端会检测并处理视频
+                        data = { chatId, caption };
+                    } else {
+                        // 如果是图片Data URL
+                        endpoint = '/sendPhoto';
+                        data = { chatId, photoPath: photoDataUrl, caption };
+                    }
+                } else if (imageType === 'grid') { // 新增九宫格选项
+                    const videoFile = document.getElementById('gridVideo').files[0];
+                    
+                    // 创建一个FormData对象来发送文件
+                    const formData = new FormData();
+                    formData.append('chatId', chatId);
+                    formData.append('caption', caption);
+                    
+                    // 添加累积的九宫格图片
+                    for (let i = 0; i < selectedGridFiles.length; i++) {
+                        formData.append('images', selectedGridFiles[i]);
+                    }
+                    
+                    // 添加视频（如果有的话）
+                    if (videoFile) {
+                        formData.append('video', videoFile);
+                    }
+                    
+                    // 使用FormData发送请求
+                    fetch('/sendGridContent', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.text())
+                    .then(result => {
+                        document.getElementById('resultText').textContent = result;
+                        document.getElementById('resultDiv').style.display = 'block';
+                        
+                        // 根据结果设置样式
+                        if (result.includes('成功')) {
+                            document.getElementById('resultDiv').className = 'mt-4 p-3 bg-success text-white rounded';
+                        } else {
+                            document.getElementById('resultDiv').className = 'mt-4 p-3 bg-danger text-white rounded';
+                        }
+                    })
+                    .catch(error => {
+                        document.getElementById('resultText').textContent = '请求失败: ' + error.message;
+                        document.getElementById('resultDiv').style.display = 'block';
+                        document.getElementById('resultDiv').className = 'mt-4 p-3 bg-danger text-white rounded';
+                    });
+                    
+                    return; // 提前返回，不执行后面的fetch
+                } else if (imageType === 'textonly') {
+                    // 仅发送文本消息，不需要图片参数
+                    endpoint = '/sendTextOnly';
+                    data = { chatId, caption };
+                } else {
+                    const imageUrl = document.getElementById('imageUrl').value;
+                    if (!imageUrl.trim()) {
+                        alert('请输入网络图片URL');
+                        return;
+                    }
+                    endpoint = '/sendPhotoByUrl';
+                    data = { chatId, imageUrl, caption };
+                }
+                
+                // 发送请求
+                fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => response.text())
+                .then(result => {
+                    document.getElementById('resultText').textContent = result;
+                    document.getElementById('resultDiv').style.display = 'block';
+                    
+                    // 根据结果设置样式
+                    if (result.includes('成功')) {
+                        document.getElementById('resultDiv').className = 'mt-4 p-3 bg-success text-white rounded';
+                    } else {
+                        document.getElementById('resultDiv').className = 'mt-4 p-3 bg-danger text-white rounded';
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('resultText').textContent = '请求失败: ' + error.message;
+                    document.getElementById('resultDiv').style.display = 'block';
+                    document.getElementById('resultDiv').className = 'mt-4 p-3 bg-danger text-white rounded';
+                });
+            });
+            
+            // 预览按钮
+            document.getElementById('previewBtn').addEventListener('click', function() {
+                const chatId = document.getElementById('chatId').value;
+                const caption = quill.root.innerHTML;
+                
+                if (!chatId) {
+                    alert('请填写聊天ID');
+                    return;
+                }
+                
+                // 创建预览窗口
+                const previewWindow = window.open('', '_blank');
+                previewWindow.document.write(`
+                    <html>
+                        <head>
+                            <title>预览</title>
+                            <style>
+                                body { font-family: Arial, sans-serif; padding: 20px; }
+                                .preview-container { max-width: 600px; margin: 0 auto; }
+                                .chat-id { background-color: #e9ecef; padding: 10px; border-radius: 5px; margin-bottom: 20px; }
+                                .caption { background-color: #f8f9fa; padding: 15px; border-radius: 5px; }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="preview-container">
+                                <div class="chat-id">聊天ID: ${chatId}</div>
+                                <div class="caption">图片说明文字: ${caption}</div>
+                            </div>
+                        </body>
+                    </html>
+                `);
+            });
+        });
+    </script>
+</body>
+</html>
