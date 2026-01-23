@@ -1,11 +1,9 @@
 package com.tutorial.telegrambot;
 
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Base64;
-import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 

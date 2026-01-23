@@ -93,32 +93,38 @@
                                 <div class="form-text">请输入接收消息的聊天ID（群组ID或用户ID）</div>
                             </div>
                             
-                            <div class="mb-3">
-                                <label for="captionEditor" class="form-label">富文本编辑器 - 图片说明文字:</label>
+                            <div class="mb-3" id="editorSection">
+                                <label for="captionEditor" class="form-label">内容编辑器:</label>
                                 <div id="captionEditor" style="height: 200px;"></div>
-                                <div class="form-text">使用上方工具栏编辑文案，支持粗体、斜体、链接等格式</div>
+                                <div class="form-text">使用上方工具栏编辑内容，支持富文本格式、插入图片和视频</div>
                             </div>
                             
                             <div class="mb-3">
                                 <label for="imageType" class="form-label">消息类型:</label>
                                 <select class="form-select" id="imageType" required>
-                                    <option value="textonly" selected>仅发送富文本内容</option>
-                                    <option value="local">发送富文本内容和本地图片</option>
-                                    <option value="url">发送富文本内容和网络图片</option>
-                                    <option value="folder">发送富文本内容和从文件夹选择</option>
-                                    <option value="grid">上传九宫格图片加视频并在最下面加入文字</option>
+                                    <option value="textonly" selected>纯文字</option>
+                                    <option value="pureimage">纯图片</option>
+                                    <option value="richtext">富文本</option>
+                                    <option value="grid">多图加视频</option>
                                 </select>
                             </div>
                             
                             <div class="mb-3" id="localImageSection">
-                                <label for="photoPath" class="form-label">本地图片路径:</label>
-                                <input type="text" class="form-control" id="photoPath" placeholder="例如: C:/images/photo.jpg">
+                                <label for="photoPath" class="form-label">图片路径/URL/Data URL:</label>
+                                <input type="text" class="form-control" id="photoPath" placeholder="例如: C:/images/photo.jpg 或 https://example.com/image.jpg">
+                                <div class="mt-2">
+                                    <label class="form-label">或选择本地文件:</label>
+                                    <input type="file" class="form-control" id="localImageFile" accept="image/*" placeholder="选择本地图片文件">
+                                </div>
+                                <div class="mt-2">
+                                    <div id="imagePreview" class="border rounded p-2" style="display: none;">
+                                        <small class="text-muted">预览:</small>
+                                        <img id="previewImg" src="" alt="预览" class="img-fluid mt-1" style="max-height: 200px;">
+                                    </div>
+                                </div>
                             </div>
                             
-                            <div class="mb-3 d-none" id="urlImageSection">
-                                <label for="imageUrl" class="form-label">网络图片URL:</label>
-                                <input type="url" class="form-control" id="imageUrl" placeholder="例如: https://example.com/image.jpg">
-                            </div>
+
                             
                             <div class="mb-3 d-none" id="folderImageSection">
                                 <label class="form-label">选择本地图片文件:</label>
@@ -159,7 +165,7 @@
                             </div>
                             
                             <div class="d-grid gap-2">
-                                <button type="submit" class="btn btn-primary btn-lg">发送图片和文案</button>
+                                <button type="submit" class="btn btn-primary btn-lg">发送消息</button>
                                 <button type="button" class="btn btn-success btn-lg" id="previewBtn">预览效果</button>
                             </div>
                         </form>
@@ -289,78 +295,59 @@
             
             const imageTypeSelect = document.getElementById('imageType');
             const localImageSection = document.getElementById('localImageSection');
-            const urlImageSection = document.getElementById('urlImageSection');
             const folderImageSection = document.getElementById('folderImageSection');
             const gridImageSection = document.getElementById('gridImageSection'); // 新增九宫格部分
+            const editorSection = document.getElementById('editorSection');
             
             // 切换图片类型
             imageTypeSelect.addEventListener('change', function() {
-                if (this.value === 'local') {
+                // 根据消息类型决定是否显示编辑器
+                if (this.value === 'textonly' || this.value === 'richtext') {
+                    // 纯文字和富文本模式显示编辑器
+                    editorSection.style.display = 'block';
+                } else {
+                    // 纯图片和九宫格模式隐藏编辑器
+                    editorSection.style.display = 'none';
+                }
+                if (this.value === 'pureimage') {
+                    // 纯图片模式 - 显示本地图片输入
                     localImageSection.classList.remove('d-none');
                     urlImageSection.classList.add('d-none');
                     folderImageSection.classList.add('d-none');
-                    gridImageSection.classList.add('d-none'); // 新增
-                } else if (this.value === 'url') {
-                    localImageSection.classList.add('d-none');
-                    urlImageSection.classList.remove('d-none');
-                    folderImageSection.classList.add('d-none');
-                    gridImageSection.classList.add('d-none'); // 新增
-                } else if (this.value === 'folder') {
-                    localImageSection.classList.add('d-none');
-                    urlImageSection.classList.add('d-none');
-                    folderImageSection.classList.remove('d-none');
-                    gridImageSection.classList.add('d-none'); // 新增
-                } else if (this.value === 'grid') { // 新增九宫格选项
+                    gridImageSection.classList.add('d-none');
+                } else if (this.value === 'grid') {
+                    // 九宫格模式
                     localImageSection.classList.add('d-none');
                     urlImageSection.classList.add('d-none');
                     folderImageSection.classList.add('d-none');
                     gridImageSection.classList.remove('d-none');
-                } else if (this.value === 'textonly') {
+                } else {
+                    // 纯文字和富文本模式 - 不需要图片输入区域
                     localImageSection.classList.add('d-none');
                     urlImageSection.classList.add('d-none');
                     folderImageSection.classList.add('d-none');
-                    gridImageSection.classList.add('d-none'); // 新增
+                    gridImageSection.classList.add('d-none');
                 }
             });
             
             // 处理本地文件选择
             document.getElementById('localImageFile').addEventListener('change', function(event) {
-                const files = event.target.files;
-                const fileListContainer = document.getElementById('selectedFileList');
-                
-                if (files.length > 0) {
-                    let html = '';
-                    for (let i = 0; i < files.length; i++) {
-                        const file = files[i];
-                        // 当文件项被点击时立即读取文件
-                        html += `<div class="file-item" onclick="selectLocalFile(this, ${i})">${file.name} (${formatFileSize(file.size)})</div>`;
-                    }
-                    fileListContainer.innerHTML = html;
-                } else {
-                    fileListContainer.innerHTML = '<div class="text-muted text-center py-3">请选择本地文件</div>';
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        // 显示预览
+                        const previewDiv = document.getElementById('imagePreview');
+                        const previewImg = document.getElementById('previewImg');
+                        previewImg.src = e.target.result;
+                        previewDiv.style.display = 'block';
+                        
+                        // 将Data URL填充到文本框
+                        document.getElementById('photoPath').value = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
                 }
             });
-            
-            // 上传文件按钮事件
-            document.getElementById('uploadFileBtn').addEventListener('click', function() {
-                const fileInput = document.getElementById('localImageFile');
-                if (fileInput.files.length === 0) {
-                    alert('请选择至少一个图片文件');
-                    return;
-                }
-                
-                // 直接触发第一个文件的选择
-                selectLocalFile(null, 0);
-            });
-            
-            // 格式化文件大小
-            function formatFileSize(bytes) {
-                if (bytes === 0) return '0 Bytes';
-                const k = 1024;
-                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-                const i = Math.floor(Math.log(bytes) / Math.log(k));
-                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-            }
             
             // 验证是否为有效的文件路径
             function isValidFilePath(path) {
@@ -368,36 +355,6 @@
                 const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
                 return imageExtensions.some(ext => path.toLowerCase().endsWith(ext));
             }
-            
-            // 选择本地文件
-            window.selectLocalFile = function(element, fileIndex) {
-                const fileInput = document.getElementById('localImageFile');
-                if (fileInput.files.length <= fileIndex) {
-                    return;
-                }
-                
-                const selectedFile = fileInput.files[fileIndex];
-                
-                // 移除之前的选择
-                document.querySelectorAll('.file-item').forEach(item => {
-                    item.classList.remove('selected');
-                });
-                
-                // 如果element存在，添加当前选择样式
-                if (element) {
-                    element.classList.add('selected');
-                }
-                
-                // 使用FileReader读取文件
-                const reader = new FileReader();
-                
-                reader.onload = function(e) {
-                    // 将Data URL存储到隐藏字段
-                    document.getElementById('photoPath').value = e.target.result;
-                };
-                
-                reader.readAsDataURL(selectedFile);
-            };
             
             // 九宫格图片累积选择功能
             let selectedGridFiles = [];
@@ -484,39 +441,37 @@
                 const caption = quill.root.innerHTML; // 获取HTML格式的内容
                 const imageType = imageTypeSelect.value;
                 
-                // 检查富文本编辑器是否有内容
-                if (!caption.trim() || caption === '<p><br></p>') {
+                // 检查富文本编辑器是否有内容（对于需要文本的类型）
+                if ((imageType === 'textonly' || imageType === 'richtext') && (!caption.trim() || caption === '<p><br></p>')) {
                     alert('请在富文本编辑器中输入内容');
                     return;
                 }
                 
                 let endpoint, data;
-                if (imageType === 'local') {
+                if (imageType === 'pureimage') {
                     const photoPath = document.getElementById('photoPath').value;
                     if (!photoPath.trim()) {
-                        alert('请输入本地图片路径');
+                        alert('请输入图片路径');
                         return;
                     }
-                    endpoint = '/sendPhoto';
-                    data = { chatId, photoPath, caption };
-                } else if (imageType === 'folder') {
-                    const photoDataUrl = document.getElementById('photoPath').value;
-                    if (!photoDataUrl.trim() || (!photoDataUrl.startsWith('data:image/') && !isValidFilePath(photoDataUrl))) {
-                        alert('请选择图片文件');
-                        return;
-                    }
-                    
-                    // 对于Data URL，我们需要将其发送到后端进行处理
-                    if (photoDataUrl.startsWith('data:video/')) {
-                        // 如果是视频Data URL，发送到视频处理端点
-                        endpoint = '/sendTextOnly'; // 使用相同端点，后端会检测并处理视频
-                        data = { chatId, caption };
-                    } else {
-                        // 如果是图片Data URL
+                    // 检查是否为Data URL（本地文件或Base64编码）
+                    if (photoPath.startsWith('data:image/')) {
+                        // 如果是Data URL，使用字节数组方式发送
                         endpoint = '/sendPhoto';
-                        data = { chatId, photoPath: photoDataUrl, caption };
+                        data = { chatId, photoPath, caption };
+                    } else {
+                        // 如果是文件路径，判断是本地文件还是URL
+                        if (photoPath.startsWith('http://') || photoPath.startsWith('https://')) {
+                            // 网络图片URL
+                            endpoint = '/sendPhotoByUrl';
+                            data = { chatId, imageUrl: photoPath, caption };
+                        } else {
+                            // 本地文件路径
+                            endpoint = '/sendPhoto';
+                            data = { chatId, photoPath, caption };
+                        }
                     }
-                } else if (imageType === 'grid') { // 新增九宫格选项
+                } else if (imageType === 'grid') { // 九宫格选项
                     const videoFile = document.getElementById('gridVideo').files[0];
                     
                     // 创建一个FormData对象来发送文件
@@ -559,17 +514,13 @@
                     
                     return; // 提前返回，不执行后面的fetch
                 } else if (imageType === 'textonly') {
-                    // 仅发送文本消息，不需要图片参数
+                    // 纯文字模式，仅发送文本消息
                     endpoint = '/sendTextOnly';
                     data = { chatId, caption };
-                } else {
-                    const imageUrl = document.getElementById('imageUrl').value;
-                    if (!imageUrl.trim()) {
-                        alert('请输入网络图片URL');
-                        return;
-                    }
-                    endpoint = '/sendPhotoByUrl';
-                    data = { chatId, imageUrl, caption };
+                } else if (imageType === 'richtext') {
+                    // 富文本模式，包含编辑器中的所有内容（文本、图片、视频等），发送到富文本端点
+                    endpoint = '/sendTextOnly';
+                    data = { chatId, caption };
                 }
                 
                 // 发送请求
@@ -599,14 +550,37 @@
                 });
             });
             
+            // 获取可读的消息类型文本
+            function getReadableMessageType(type) {
+                switch(type) {
+                    case 'textonly':
+                        return '纯文字';
+                    case 'pureimage':
+                        return '纯图片';
+                    case 'richtext':
+                        return '富文本';
+                    case 'grid':
+                        return '多图加视频';
+                    default:
+                        return type;
+                }
+            }
+            
             // 预览按钮
             document.getElementById('previewBtn').addEventListener('click', function() {
                 const chatId = document.getElementById('chatId').value;
                 const caption = quill.root.innerHTML;
+                const imageType = imageTypeSelect.value;
                 
                 if (!chatId) {
                     alert('请填写聊天ID');
                     return;
+                }
+                
+                // 根据消息类型确定预览内容
+                let previewCaption = caption;
+                if (imageType !== 'richtext' && imageType !== 'textonly') {
+                    previewCaption = '（无文字内容）';
                 }
                 
                 // 创建预览窗口
@@ -620,12 +594,14 @@
                                 .preview-container { max-width: 600px; margin: 0 auto; }
                                 .chat-id { background-color: #e9ecef; padding: 10px; border-radius: 5px; margin-bottom: 20px; }
                                 .caption { background-color: #f8f9fa; padding: 15px; border-radius: 5px; }
+                                .message-type { background-color: #d1ecf1; padding: 10px; border-radius: 5px; margin-bottom: 10px; }
                             </style>
                         </head>
                         <body>
                             <div class="preview-container">
                                 <div class="chat-id">聊天ID: ${chatId}</div>
-                                <div class="caption">图片说明文字: ${caption}</div>
+                                <div class="message-type">消息类型: ${getReadableMessageType(imageType)}</div>
+                                <div class="caption">内容: ${previewCaption}</div>
                             </div>
                         </body>
                     </html>
